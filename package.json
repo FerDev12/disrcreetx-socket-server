@@ -19,6 +19,7 @@
     "eslint-config-next": "13.4.7",
     "next": "13.4.7",
     "next-connect": "^1.0.0",
+    "nextjs-cors": "^2.1.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "socket.io": "^4.7.2",
