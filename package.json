@@ -14,12 +14,17 @@
     "@types/node": "20.5.8",
     "@types/react": "18.2.21",
     "@types/react-dom": "18.2.7",
+    "cors": "^2.8.5",
     "eslint": "8.48.0",
     "eslint-config-next": "13.4.19",
     "next": "13.4.19",
+    "next-connect": "^1.0.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "socket.io": "^4.7.2",
     "typescript": "5.2.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.13"
   }
 }
