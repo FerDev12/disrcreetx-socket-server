@@ -3,6 +3,7 @@ import { NextApiRequest, NextConfig } from 'next';
 import { Server as ServerIO } from 'socket.io';
 import { NextApiResponseServerIO } from '@/types';
 import NextCors from 'nextjs-cors';
+import { currentProfile } from '@/lib/current-profile';
 
 export const config: NextConfig = {
   api: {
@@ -21,8 +22,14 @@ export default async function ioHandler(
     optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
   });
 
+  const profile = await currentProfile(req);
+
+  if (!profile) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   try {
-    if (!res.socket.server.io) {
+    if (!res?.socket?.server?.io) {
       const path = '/api/socket/io';
       const httpServer: NetServer = res.socket.server as any;
       const io = new ServerIO(httpServer, {

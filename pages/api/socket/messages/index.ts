@@ -120,6 +120,13 @@ export default async function handler(
       },
     });
 
+    if (!message) {
+      return res.status(400).json({ error: 'Something went wrong' });
+    }
+
+    message.content = content;
+    message.fileUrl = fileUrl;
+
     const channelKey = `chat:${channelId}:messages`;
 
     res?.socket?.server?.io?.emit(channelKey, message);

@@ -169,6 +169,8 @@ export async function handler(
           },
         },
       });
+
+      directMessage.content = content;
     }
 
     const updateKey = `chat:${conversationId}:messages:update`;

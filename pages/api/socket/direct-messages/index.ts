@@ -92,7 +92,7 @@ export default async function handler(
       encryptedFileUrl = cryptr.encrypt(fileUrl);
     }
 
-    const message = await db.directMessage.create({
+    const directMessage = await db.directMessage.create({
       data: {
         content: encryptedContent,
         fileUrl: encryptedFileUrl,
@@ -110,11 +110,18 @@ export default async function handler(
       },
     });
 
+    if (!directMessage) {
+      return res.status(400).json({ error: 'Something went wrong' });
+    }
+
+    directMessage.content = content;
+    directMessage.fileUrl = fileUrl;
+
     const channelKey = `chat:${conversationId}:messages`;
 
-    res?.socket?.server?.io?.emit(channelKey, message);
+    res?.socket?.server?.io?.emit(channelKey, directMessage);
 
-    return res.status(201).json(message);
+    return res.status(201).json(directMessage);
   } catch (err: any) {
     console.error('[DIRECT_MESSAGE_ERROR]', err);
     return res.status(500).json({ error: 'Internal Server Error' });

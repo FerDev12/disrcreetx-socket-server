@@ -148,7 +148,7 @@ export default async function handler(
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { content } = req.body;
+      const { content } = req.body as { content: string };
 
       const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
       const encryptedContent = cryptr.encrypt(content);
@@ -168,6 +168,12 @@ export default async function handler(
           },
         },
       });
+
+      message.content = content;
+    }
+
+    if (!message) {
+      return res.status(400).json({ error: 'Something went wrong' });
     }
 
     const updateKey = `chat:${channelId}:messages:update`;
