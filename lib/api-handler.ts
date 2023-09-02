@@ -8,11 +8,11 @@ export function createApiHandler<
 >() {
   const router = createRouter<Req, Res>();
   router.use(
-    expressWrapper(
-      cors({
-        origin: '*',
-      })
-    )
+    // expressWrapper(
+    cors({
+      origin: '*',
+    })
+    // )
   );
 
   router.handler({
