@@ -15,20 +15,20 @@ export default async function ioHandler(
   req: NextApiRequest,
   res: NextApiResponseServerIO
 ) {
-  await NextCors(req, res, {
-    // Options
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
-    origin: '*',
-    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
-  });
-
-  const profile = await currentProfile(req);
-
-  if (!profile) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
   try {
+    await NextCors(req, res, {
+      // Options
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+      origin: '*',
+      optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+    });
+
+    const profile = await currentProfile(req);
+
+    if (!profile) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     if (!res?.socket?.server?.io) {
       const path = '/api/socket/io';
       const httpServer: NetServer = res.socket.server as any;
