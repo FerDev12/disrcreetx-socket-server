@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
 import { MemberRole } from '@prisma/client';
 import { NextApiRequest } from 'next';
+import NextCors from 'nextjs-cors';
 
 // const handler = createApiHandler<NextApiRequest, NextApiResponseServerIO>();
 
@@ -11,6 +12,13 @@ export async function handler(
   req: NextApiRequest,
   res: NextApiResponseServerIO
 ) {
+  await NextCors(req, res, {
+    // Options
+    methods: ['PATCH', 'DELETE'],
+    origin: '*',
+    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  });
+
   try {
     if (req.method !== 'DELETE' && req.method !== 'PATCH') {
       return res.status(405).json({ error: 'Method not allowed' });
@@ -165,7 +173,7 @@ export async function handler(
 
     return res.status(200).json(directMessage);
   } catch (err: any) {
-    console.error('[DIRECT_MESSAGE]', err);
+    console.error('[DIRECT_MESSAGE_ID_ERROR]', err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
