@@ -32,8 +32,8 @@ export default async function ioHandler(
       return res.status(400).json({ error: 'Missing channel Id' });
     }
 
-    const updateKey = `chat:${chatId}:messages:update`;
-    res?.socket?.server?.io?.emit(updateKey);
+    const refetchKey = `chat:${chatId}:messages:refetch`;
+    res?.socket?.server?.io?.emit(refetchKey);
 
     res.end();
   } catch (err: any) {
