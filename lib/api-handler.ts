@@ -10,10 +10,7 @@ export function createApiHandler<
   router.use(
     expressWrapper(
       cors({
-        origin: [
-          'http://localhost:3000',
-          process.env.DISCORD_CLONE_APP_URL ?? '',
-        ],
+        origin: '*',
       })
     )
   );
