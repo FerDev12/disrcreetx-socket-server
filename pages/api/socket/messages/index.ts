@@ -4,6 +4,7 @@ import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
 import NextCors from 'nextjs-cors';
+import Cryptr from 'cryptr';
 
 export default async function handler(
   req: NextApiRequest,
@@ -93,10 +94,18 @@ export default async function handler(
       return res.status(404).json({ error: 'Member not found' });
     }
 
+    // ENCRYPT CONTENTS
+    const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+    const encryptedContent = cryptr.encrypt(content);
+    let encryptedFileUrl: null | string = null;
+    if (fileUrl) {
+      encryptedFileUrl = cryptr.encrypt(fileUrl);
+    }
+
     const message = await db.message.create({
       data: {
-        content,
-        fileUrl,
+        content: encryptedContent,
+        fileUrl: encryptedFileUrl,
         channelId: channelId as string,
         memberId: member.id,
         createdAt: date,

@@ -3,6 +3,7 @@ import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
 import { MemberRole } from '@prisma/client';
+import Cryptr from 'cryptr';
 import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
 
@@ -150,12 +151,15 @@ export async function handler(
 
       const { content } = req.body;
 
+      const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+      const encryptedContent = cryptr.encrypt(content);
+
       directMessage = await db.directMessage.update({
         where: {
           id: directMessageId as string,
         },
         data: {
-          content,
+          content: encryptedContent,
         },
         include: {
           member: {

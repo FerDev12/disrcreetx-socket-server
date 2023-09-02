@@ -5,6 +5,7 @@ import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
 import { MemberRole } from '@prisma/client';
+import Cryptr from 'cryptr';
 
 export default async function handler(
   req: NextApiRequest,
@@ -149,12 +150,15 @@ export default async function handler(
 
       const { content } = req.body;
 
+      const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+      const encryptedContent = cryptr.encrypt(content);
+
       message = await db.message.update({
         where: {
           id: messageId as string,
         },
         data: {
-          content,
+          content: encryptedContent,
         },
         include: {
           member: {
