@@ -5,6 +5,21 @@ import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
 import NextCors from 'nextjs-cors';
 import Cryptr from 'cryptr';
+import { z } from 'zod';
+import { BadRequestError } from '@/errors/bad-request-error';
+import { ValidationError } from '@/errors/validation-error';
+import { apiErrorHandler } from '@/lib/api-error-handler';
+import { NotFoundError } from '@/errors/not-found-error';
+
+const querySchema = z.object({
+  serverId: z.string().nonempty(),
+  channelId: z.string().nonempty(),
+});
+
+const bodySchema = z.object({
+  content: z.string().nonempty(),
+  fileUrl: z.string().url().nullish(),
+});
 
 export default async function handler(
   req: NextApiRequest,
@@ -26,24 +41,30 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { serverId, channelId } = req.query;
+    // const { serverId, channelId } = req.query;
+    const [queryResponse, bodyResponse] = await Promise.allSettled([
+      querySchema.safeParseAsync(req.query),
+      bodySchema.safeParseAsync(req.body),
+    ]);
 
-    if (!serverId) {
-      return res.status(400).json({ error: 'Server Id missing' });
+    if (queryResponse.status === 'rejected') {
+      throw new BadRequestError('Failed to parse query');
     }
 
-    if (!channelId) {
-      return res.status(400).json({ error: 'Channel Id missing' });
+    if (!queryResponse.value.success) {
+      throw new ValidationError(queryResponse.value.error.errors);
     }
 
-    const { content, fileUrl } = req.body as {
-      content: string;
-      fileUrl: string;
-    };
-
-    if (!content) {
-      return res.status(400).json({ error: 'Missing content' });
+    if (bodyResponse.status === 'rejected') {
+      throw new BadRequestError('Failed to parse body');
     }
+
+    if (!bodyResponse.value.success) {
+      throw new ValidationError(bodyResponse.value.error.errors);
+    }
+
+    const { serverId, channelId } = queryResponse.value.data;
+    const { content, fileUrl } = bodyResponse.value.data;
 
     const [serverResponse, channelResponse] = await Promise.allSettled([
       db.server.findFirst({
@@ -68,22 +89,22 @@ export default async function handler(
     ]);
 
     if (serverResponse.status === 'rejected') {
-      throw new Error('Find server request failed');
+      throw new NotFoundError('Server not found');
     }
 
     if (channelResponse.status === 'rejected') {
-      throw new Error('Find channel request failed');
+      throw new NotFoundError('Channel not found');
     }
 
     const server = serverResponse.value;
     const channel = channelResponse.value;
 
     if (!server) {
-      return res.status(404).json({ error: 'Server not found' });
+      throw new NotFoundError('Server not found');
     }
 
     if (!channel) {
-      return res.status(404).json({ error: 'Channel not found' });
+      throw new NotFoundError('Channel not found');
     }
 
     const member = server.members.find(
@@ -91,7 +112,7 @@ export default async function handler(
     );
 
     if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
+      throw new NotFoundError('Member not found');
     }
 
     // ENCRYPT CONTENTS
@@ -121,11 +142,11 @@ export default async function handler(
     });
 
     if (!message) {
-      return res.status(400).json({ error: 'Something went wrong' });
+      throw new BadRequestError('Something went wrong!');
     }
 
     message.content = content;
-    message.fileUrl = fileUrl;
+    message.fileUrl = fileUrl ?? null;
 
     const channelKey = `chat:${channelId}:messages`;
 
@@ -133,7 +154,6 @@ export default async function handler(
 
     return res.status(201).json(message);
   } catch (err: any) {
-    console.error('[MESSAGES_ERROR]', err);
-    return res.status(500).json({ error: 'Internal Server Error ' });
+    return apiErrorHandler(err, req, res, '[MESSAGES_POST]');
   }
 }

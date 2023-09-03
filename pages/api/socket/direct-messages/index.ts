@@ -4,6 +4,19 @@ import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
 import NextCors from 'nextjs-cors';
 import Cryptr from 'cryptr';
+import { z } from 'zod';
+import { ValidationError } from '@/errors/validation-error';
+import { NotFoundError } from '@/errors/not-found-error';
+import { apiErrorHandler } from '@/lib/api-error-handler';
+
+const querySchema = z.object({
+  conversationId: z.string().nonempty(),
+});
+
+const boydSchema = z.object({
+  content: z.string().nonempty(),
+  fileUrl: z.string().url(),
+});
 
 export default async function handler(
   req: NextApiRequest,
@@ -27,24 +40,25 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { conversationId } = req.query;
+    const queryResponse = querySchema.safeParse(req.query);
 
-    if (!conversationId) {
-      return res.status(400).json({ error: 'Conversation Id missing' });
+    if (!queryResponse.success) {
+      throw new ValidationError(queryResponse.error.errors);
     }
 
-    const { content, fileUrl } = req.body as {
-      content: string;
-      fileUrl: string;
-    };
+    const { conversationId } = queryResponse.data;
 
-    if (!content) {
-      return res.status(400).json({ error: 'Missing content' });
+    const bodyResponse = boydSchema.safeParse(req.body);
+
+    if (!bodyResponse.success) {
+      throw new ValidationError(bodyResponse.error.errors);
     }
+
+    const { content, fileUrl } = bodyResponse.data;
 
     const conversation = await db.conversation.findFirst({
       where: {
-        id: conversationId as string,
+        id: conversationId,
         OR: [
           {
             memberOne: {
@@ -73,7 +87,7 @@ export default async function handler(
     });
 
     if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      throw new NotFoundError('Conversation not found');
     }
 
     const member =
@@ -82,7 +96,7 @@ export default async function handler(
         : conversation.memberTwo;
 
     if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
+      throw new NotFoundError('Member not found');
     }
 
     const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
@@ -111,7 +125,7 @@ export default async function handler(
     });
 
     if (!directMessage) {
-      return res.status(400).json({ error: 'Something went wrong' });
+      throw new NotFoundError('Message not found');
     }
 
     directMessage.content = content;
@@ -123,7 +137,6 @@ export default async function handler(
 
     return res.status(201).json(directMessage);
   } catch (err: any) {
-    console.error('[DIRECT_MESSAGE_ERROR]', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return apiErrorHandler(err, req, res, '[DIRECT_MESSAGE_POST]');
   }
 }

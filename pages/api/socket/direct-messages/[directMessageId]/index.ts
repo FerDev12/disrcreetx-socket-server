@@ -1,4 +1,8 @@
-// import { createApiHandler } from '@/lib/api-handler';
+import { MethodNotAllowedError } from '@/errors/method-not-allowed-error';
+import { NotFoundError } from '@/errors/not-found-error';
+import { UnauthorizedError } from '@/errors/unauthorized-error';
+import { ValidationError } from '@/errors/validation-error';
+import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
@@ -6,8 +10,16 @@ import { MemberRole } from '@prisma/client';
 import Cryptr from 'cryptr';
 import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
+import { z } from 'zod';
 
-// const handler = createApiHandler<NextApiRequest, NextApiResponseServerIO>();
+const querySchema = z.object({
+  directMessageId: z.string().nonempty(),
+  conversationId: z.string().nonempty(),
+});
+
+const bodySchema = z.object({
+  content: z.string().nonempty(),
+});
 
 export async function handler(
   req: NextApiRequest,
@@ -22,30 +34,28 @@ export async function handler(
 
   try {
     if (req.method !== 'DELETE' && req.method !== 'PATCH') {
-      return res.status(405).json({ error: 'Method not allowed' });
+      throw new MethodNotAllowedError();
     }
 
     const profile = await currentProfile(req);
 
     if (!profile) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      throw new UnauthorizedError();
     }
 
-    const { directMessageId, conversationId } = req.query;
+    const queryResponse = querySchema.safeParse(req.query);
 
-    if (!directMessageId) {
-      return res.status(400).json({ error: 'Direct message Id missing' });
+    if (!queryResponse.success) {
+      throw new ValidationError(queryResponse.error.errors);
     }
 
-    if (!conversationId) {
-      return res.status(400).json({ error: 'Conversation Id missing' });
-    }
+    const { directMessageId, conversationId } = queryResponse.data;
 
     const [conversationResponse, directMessageResponse] =
       await Promise.allSettled([
         db.conversation.findFirst({
           where: {
-            id: conversationId as string,
+            id: conversationId,
             OR: [
               {
                 memberOne: {
@@ -74,8 +84,8 @@ export async function handler(
         }),
         db.directMessage.findFirst({
           where: {
-            id: directMessageId as string,
-            conversationId: conversationId as string,
+            id: directMessageId,
+            conversationId: conversationId,
           },
           include: {
             member: {
@@ -87,24 +97,23 @@ export async function handler(
         }),
       ]);
 
-    if (conversationResponse.status === 'rejected') {
-      return res.status(400).json({ error: 'Conversation request failed' });
+    if (
+      conversationResponse.status === 'rejected' ||
+      !conversationResponse.value
+    ) {
+      throw new NotFoundError('Conversation not found');
     }
 
-    if (directMessageResponse.status === 'rejected') {
-      return res.status(400).json({ error: 'Direct message request failed' });
+    if (
+      directMessageResponse.status === 'rejected' ||
+      !directMessageResponse.value ||
+      directMessageResponse.value.deleted
+    ) {
+      throw new NotFoundError('Direct message not found');
     }
 
     const conversation = conversationResponse.value;
     let directMessage = directMessageResponse.value;
-
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
-    }
-
-    if (!directMessage || directMessage.deleted) {
-      return res.status(404).json({ error: 'Direct message not found' });
-    }
 
     const member =
       conversation.memberOne.profileId === profile.id
@@ -112,7 +121,7 @@ export async function handler(
         : conversation.memberTwo;
 
     if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
+      throw new NotFoundError('Member not found');
     }
 
     const isMessageOwner = directMessage.memberId === member.id;
@@ -121,13 +130,13 @@ export async function handler(
     const canModify = isMessageOwner || isAdmin || isModerator;
 
     if (!canModify) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      throw new UnauthorizedError();
     }
 
     if (req.method === 'DELETE') {
       directMessage = await db.directMessage.update({
         where: {
-          id: directMessageId as string,
+          id: directMessageId,
         },
         data: {
           fileUrl: null,
@@ -146,17 +155,23 @@ export async function handler(
 
     if (req.method === 'PATCH') {
       if (!isMessageOwner) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        throw new UnauthorizedError();
       }
 
-      const { content } = req.body;
+      const bodyResponse = bodySchema.safeParse(req.body);
+
+      if (!bodyResponse.success) {
+        throw new ValidationError(bodyResponse.error.errors);
+      }
+
+      const { content } = bodyResponse.data;
 
       const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
       const encryptedContent = cryptr.encrypt(content);
 
       directMessage = await db.directMessage.update({
         where: {
-          id: directMessageId as string,
+          id: directMessageId,
         },
         data: {
           content: encryptedContent,
@@ -179,8 +194,7 @@ export async function handler(
 
     return res.status(200).json(directMessage);
   } catch (err: any) {
-    console.error('[DIRECT_MESSAGE_ID_ERROR]', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return apiErrorHandler(err, req, res, '[DIRECT_MESSAGE_ID]');
   }
 }
 
