@@ -6,7 +6,7 @@ import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
-import { Call } from '@prisma/client';
+import { Call, Conversation, Member, Profile } from '@prisma/client';
 import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
 import { z } from 'zod';
@@ -74,7 +74,12 @@ export default async function handler(
       throw new NotFoundError('Conversation not found');
     }
 
-    let call: Call | null = null;
+    let call:
+      | (Call & {
+          conversation: Conversation;
+          member: Member & { profile: Profile };
+        })
+      | null = null;
 
     if (req.method === 'PATCH') {
       const bodyResponse = bodySchema.safeParse(req.body);
@@ -100,6 +105,11 @@ export default async function handler(
         },
         include: {
           conversation: true,
+          member: {
+            include: {
+              profile: true,
+            },
+          },
         },
       });
     }
@@ -133,7 +143,7 @@ export default async function handler(
     }
 
     // EMIT SOCKET EVENT
-    const callKey = `chat:${conversationId}:call`;
+    const callKey = `chat:${conversationId}:call:${profile.id}`;
     res?.socket?.server?.io?.emit(callKey, call);
 
     return res.status(200).json(call);

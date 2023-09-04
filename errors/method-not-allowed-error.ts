@@ -3,7 +3,7 @@ import { BaseError, SerializedError } from './base-error';
 export class MethodNotAllowedError extends BaseError {
   status = 404;
   name = 'Method Not Allwed';
-  message = 'Asset not found';
+  message = '';
 
   constructor(message?: string, name?: string) {
     super(message);
@@ -20,7 +20,7 @@ export class MethodNotAllowedError extends BaseError {
       errors: [
         {
           error: this.name,
-          message: this.message,
+          // message: this.message,
         },
       ],
     };
