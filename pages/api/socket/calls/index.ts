@@ -129,7 +129,7 @@ export default async function handler(
       throw new BadRequestError('Failed to create call');
     }
 
-    const callKey = `chat:${conversationId}:calls:${call.type.toLowerCase()}`;
+    const callKey = `chat:${conversationId}:call`;
     res?.socket?.server?.io?.emit(callKey, call);
 
     return res.status(201).json(call);

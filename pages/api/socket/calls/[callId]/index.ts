@@ -34,7 +34,7 @@ export default async function handler(
       optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
     });
 
-    if (!['DELETE'].includes(req.method ?? '')) {
+    if (!['DELETE', 'PATCH'].includes(req.method ?? '')) {
       throw new MethodNotAllowedError();
     }
 
@@ -128,7 +128,7 @@ export default async function handler(
     }
 
     // EMIT SOCKET EVENT
-    const callKey = `chat:${conversationId}:calls:${call.type.toLowerCase()}`;
+    const callKey = `chat:${conversationId}:call`;
     res?.socket?.server?.io?.emit(callKey, call);
 
     return res.status(200).json(call);
