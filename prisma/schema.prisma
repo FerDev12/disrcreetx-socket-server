@@ -127,7 +127,7 @@ model Call {
   answered Boolean @default(false)
   declined Boolean @default(false)
   cancelled Boolean @default(false)
-  active Boolean @default(false)
+  active Boolean @default(true)
   ended Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
