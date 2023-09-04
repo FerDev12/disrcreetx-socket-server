@@ -84,7 +84,7 @@ export default async function handler(
       }
 
       const { answered, declined, cancelled } = bodyResponse.data;
-      const active = !declined || !cancelled;
+      const active = !declined && !cancelled;
 
       call = await db.call.update({
         where: {
