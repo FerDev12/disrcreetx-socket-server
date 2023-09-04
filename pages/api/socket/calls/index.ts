@@ -10,6 +10,7 @@ import { CallType } from '@prisma/client';
 import { NextApiRequest } from 'next';
 import { z } from 'zod';
 import NextCors from 'nextjs-cors';
+import { MethodNotAllowedError } from '@/errors/method-not-allowed-error';
 
 const querySchema = z.object({
   serverId: z.string().nonempty().trim(),
@@ -31,6 +32,10 @@ export default async function handler(
       origin: '*',
       optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
     });
+
+    if (req.method !== 'POST') {
+      throw new MethodNotAllowedError();
+    }
 
     const profile = await currentProfile(req);
 

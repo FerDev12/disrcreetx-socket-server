@@ -119,9 +119,7 @@ export default async function handler(
       call = await db.call.update({
         where: {
           id: callId,
-          conversation: {
-            id: conversationId,
-          },
+          conversationId,
         },
         data: {
           active: false,
