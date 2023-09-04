@@ -15,7 +15,7 @@ const querySchema = z.object({
 
 const boydSchema = z.object({
   content: z.string().nonempty(),
-  fileUrl: z.string().url(),
+  fileUrl: z.string().url().nullish(),
 });
 
 export default async function handler(
@@ -129,7 +129,7 @@ export default async function handler(
     }
 
     directMessage.content = content;
-    directMessage.fileUrl = fileUrl;
+    directMessage.fileUrl = fileUrl ?? null;
 
     const channelKey = `chat:${conversationId}:messages`;
 
