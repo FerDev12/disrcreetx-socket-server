@@ -119,6 +119,7 @@ export default async function handler(
         },
         include: {
           conversation: true,
+          member: true
         },
       });
     }
