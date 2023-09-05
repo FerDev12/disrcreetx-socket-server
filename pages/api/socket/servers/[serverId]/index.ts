@@ -50,143 +50,70 @@ export default async function handler(
       throw new UnauthorizedError();
     }
 
-    const [queryResponse, bodyResponse] = await Promise.allSettled([
-      querySchema.safeParseAsync(req.query),
-      bodySchema.safeParseAsync(req.body),
-    ]);
+    const queryResponse = querySchema.safeParse(req.query);
 
-    if (queryResponse.status === 'rejected') {
-      throw new BadRequestError('Failed to parse query');
+    if (!queryResponse.success) {
+      throw new ValidationError(queryResponse.error.errors);
     }
 
-    if (!queryResponse.value.success) {
-      throw new ValidationError(queryResponse.value.error.errors);
-    }
+    const { serverId } = queryResponse.data;
 
-    if (bodyResponse.status === 'rejected') {
-      throw new BadRequestError('Failed to parse body');
-    }
+    if (req.method === 'PATCH') {
+      const bodyResponse = bodySchema.safeParse(req.body);
 
-    if (!bodyResponse.value.success) {
-      throw new ValidationError(bodyResponse.value.error.errors);
-    }
-
-    const { serverId } = queryResponse.value.data;
-    const { eventType, name, imageUrl } = bodyResponse.value.data;
-
-    const server = await db.server.findUnique({
-      where: {
-        id: serverId,
-        members: {
-          some: {
-            profileId: profile.id,
-            role: {
-              in: [MemberRole.ADMIN, MemberRole.MODERATOR],
-            },
-          },
-        },
-      },
-      include: {
-        members: true,
-      },
-    });
-
-    if (!server) {
-      throw new NotFoundError('Server not found');
-    }
-
-    const isAdmin = server.members.findIndex(
-      (member) =>
-        member.role === MemberRole.ADMIN && member.profileId === profile.id
-    );
-
-    if (eventType === 'server:updated') {
-      if (!isAdmin) {
-        throw new UnauthorizedError();
+      if (!bodyResponse.success) {
+        throw new ValidationError(bodyResponse.error.errors);
       }
 
-      if (!name && !imageUrl) {
-        throw new ValidationError([
-          {
-            path: ['name'],
-            message: 'Required',
-            code: 'invalid_type',
-            expected: 'string',
-            received: 'undefined',
-          },
-          {
-            path: ['imageUrl'],
-            message: 'Required',
-            code: 'invalid_type',
-            expected: 'string',
-            received: 'undefined',
-          },
-        ]);
+      const { name, imageUrl } = bodyResponse.data;
+
+      const data: { name?: string; imageUrl?: string } = {};
+
+      if (!data && !imageUrl) {
+        throw new BadRequestError(
+          'Either name or image url or both are required'
+        );
       }
 
-      // Update Server
-      let data: { name?: string; imageUrl?: string } = {};
-      if (name && name.length) {
+      if (name) {
         data.name = name;
-      } else {
-        data.name = server.name;
       }
-
-      if (imageUrl && imageUrl.length) {
+      if (imageUrl) {
         data.imageUrl = imageUrl;
-      } else {
-        data.imageUrl = server.imageUrl;
       }
 
-      const updatedServer = await db.server.update({
+      const server = await db.server.update({
         where: {
           id: serverId,
-          members: {
-            some: {
-              AND: [
-                {
-                  profileId: profile.id,
-                },
-                {
-                  role: {
-                    in: [MemberRole.MODERATOR, MemberRole.ADMIN],
-                  },
-                },
-              ],
-            },
-          },
+          profileId: profile.id,
         },
         data,
       });
 
-      if (!updatedServer) {
+      if (!server) {
         throw new NotFoundError('Server not found');
       }
 
-      const serverUpdatedKey = `server:${serverId}:updated`;
-      res.socket?.server?.io?.emit(serverUpdatedKey, updatedServer);
-      return res.status(200).json(updatedServer);
+      const serverUpdatedKey = `server:${serverId}:udpated`;
+      res.socket?.server?.io?.emit(serverUpdatedKey, server);
+      return res.status(200).json(server);
     }
 
-    if (eventType === 'server:deleted') {
-      if (!isAdmin) {
-        throw new UnauthorizedError();
-      }
-
-      const deletedServer = await db.server.delete({
+    if (req.method === 'DELETE') {
+      const server = await db.server.delete({
         where: {
           id: serverId,
           profileId: profile.id,
         },
       });
 
-      if (!deletedServer) {
+      if (!server) {
         throw new NotFoundError('Server not found');
       }
 
       const serverDeletedKey = `server:${serverId}:deleted`;
-      res.socket?.server?.io?.emit(serverDeletedKey, deletedServer.id);
-      return res.status(200).json(deletedServer);
+      res.socket?.server?.io?.emit(serverDeletedKey, server.id);
+      return res.status(200).json(server);
     }
 
     throw new InternalServerError();

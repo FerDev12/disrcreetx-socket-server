@@ -6,18 +6,14 @@ import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
-import { ChannelType, MemberRole } from '@prisma/client';
-import { NextApiRequest } from 'next';
+import { MemberRole } from '@prisma/client';
+import { NextApiRequest, NextApiResponse } from 'next';
 import NextCors from 'nextjs-cors';
 import { z } from 'zod';
 
 const querySchema = z.object({
   serverId: z.string().uuid().nonempty(),
-});
-
-const bodySchema = z.object({
-  name: z.string().trim().nonempty(),
-  type: z.enum([ChannelType.AUDIO, ChannelType.VIDEO, ChannelType.TEXT]),
+  inviteCode: z.string().nonempty(),
 });
 
 export default async function handler(
@@ -43,52 +39,47 @@ export default async function handler(
       throw new ValidationError(queryResponse.error.errors);
     }
 
-    const { serverId } = queryResponse.data;
+    const { serverId, inviteCode } = queryResponse.data;
 
-    const server = await db.server.findUnique({
+    const existingServer = await db.server.findUnique({
       where: {
         id: serverId,
+        inviteCode,
+      },
+      select: {
+        id: true,
         members: {
-          some: {
-            profileId: profile.id,
-            role: {
-              in: [MemberRole.MODERATOR, MemberRole.ADMIN],
-            },
+          select: {
+            id: true,
           },
         },
       },
     });
 
-    if (!server) {
+    if (!existingServer) {
       throw new NotFoundError('Server not found');
     }
 
-    const bodyResponse = bodySchema.safeParse(req.body);
-
-    if (!bodyResponse.success) {
-      throw new ValidationError(bodyResponse.error.errors);
+    if (existingServer.members.length === 100) {
+      throw new BadRequestError('Server members limit reached');
     }
 
-    const { name, type } = bodyResponse.data;
-
-    const channel = await db.channel.create({
+    const member = await db.member.create({
       data: {
-        serverId,
         profileId: profile.id,
-        type,
-        name,
+        serverId,
       },
     });
 
-    if (!channel) {
-      throw new BadRequestError('Server creation failed');
+    if (!member) {
+      throw new BadRequestError('Member creation failed');
     }
 
-    const channelCreatedKey = `server:${serverId}:channel:created`;
-    res?.socket?.server?.io?.emit(channelCreatedKey, channel);
+    const memberAddedKey = `server:${serverId}:member:added`;
+    res.socket?.server?.io?.emit(memberAddedKey, member);
 
-    return res.status(201).json(channel);
+    return res.status(201).json(member);
   } catch (err: any) {
-    return apiErrorHandler(err, req, res, '[CHANNEL_POST]');
+    return apiErrorHandler(err, req, res, '[MEMBER_POST]');
   }
 }
