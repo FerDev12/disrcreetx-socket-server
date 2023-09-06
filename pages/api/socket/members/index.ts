@@ -6,8 +6,7 @@ import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
-import { MemberRole } from '@prisma/client';
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
 import { z } from 'zod';
 
