@@ -50,6 +50,7 @@ export default async function handler(
         members: {
           select: {
             id: true,
+            profileId: true,
           },
         },
       },
@@ -61,6 +62,15 @@ export default async function handler(
 
     if (existingServer.members.length === 100) {
       throw new BadRequestError('Server members limit reached');
+    }
+
+    const existingMember =
+      existingServer.members.findIndex(
+        (member) => member.profileId === profile.id
+      ) !== -1;
+
+    if (existingMember) {
+      throw new BadRequestError('Member already exists');
     }
 
     const member = await db.member.create({
