@@ -78,6 +78,15 @@ export default async function handler(
         profileId: profile.id,
         serverId,
       },
+      include: {
+        profile: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+          },
+        },
+      },
     });
 
     if (!member) {
