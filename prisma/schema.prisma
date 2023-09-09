@@ -22,16 +22,16 @@ model Profile {
 }
 
 model Server {
-  id         String    @id @default(uuid())
-  name       String
-  imageUrl   String    @db.Text
-  inviteCode String    @unique
-  profileId  String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  profile    Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  members    Member[]
-  channels   Channel[]
+  id            String         @id @default(uuid())
+  name          String
+  imageUrl      String         @db.Text
+  inviteCode    String         @unique
+  profileId     String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  profile       Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  members       Member[]
+  channels      Channel[]
   conversations Conversation[]
 
   @@index([profileId])
@@ -48,7 +48,9 @@ model Member {
   conversationsReceived  Conversation[]  @relation("MemberTwo")
   messages               Message[]
   directMessages         DirectMessage[]
-  calls Call[]
+  calls                  Call[]
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
   @@index([profileId])
   @@index([serverId])
@@ -89,14 +91,14 @@ model Message {
 
 model Conversation {
   id             String          @id @default(uuid())
-  serverId String
-  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  serverId       String
+  server         Server          @relation(fields: [serverId], references: [id], onDelete: Cascade)
   memberOneId    String
   memberTwoId    String
   memberOne      Member          @relation("MemberOne", fields: [memberOneId], references: [id], onDelete: Cascade)
   memberTwo      Member          @relation("MemberTwo", fields: [memberTwoId], references: [id], onDelete: Cascade)
   directMessages DirectMessage[]
-  calls Call[]
+  calls          Call[]
 
   @@unique([serverId])
   @@unique([memberOneId, memberTwoId])
@@ -121,20 +123,21 @@ model DirectMessage {
   @@index([conversationId])
 }
 
-model Call { 
-  id String @id @default(uuid())
-  type CallType @default(AUDIO)
-  answered Boolean @default(false)
-  declined Boolean @default(false)
-  cancelled Boolean @default(false)
-  active Boolean @default(true)
-  ended Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  memberId String
-  conversationId String 
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+model Call {
+  id             String       @id @default(uuid())
+  type           CallType     @default(AUDIO)
+  answered       Boolean      @default(false)
+  declined       Boolean      @default(false)
+  cancelled      Boolean      @default(false)
+  active         Boolean      @default(true)
+  ended          Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  memberId       String
+  conversationId String
+  member         Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
   @@index([memberId])
   @@index([conversationId])
 }
@@ -151,7 +154,7 @@ enum ChannelType {
   VIDEO
 }
 
-enum CallType { 
+enum CallType {
   AUDIO
   VIDEO
 }
