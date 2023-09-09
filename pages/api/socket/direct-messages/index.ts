@@ -95,6 +95,11 @@ export default async function handler(
         ? conversation.memberOne
         : conversation.memberTwo;
 
+    const otherMemberProfileId =
+      conversation.memberOne.profileId === profile.id
+        ? conversation.memberTwoId
+        : conversation.memberOneId;
+
     if (!member) {
       throw new NotFoundError('Member not found');
     }
@@ -132,8 +137,10 @@ export default async function handler(
     directMessage.fileUrl = fileUrl ?? null;
 
     const channelKey = `chat:${conversationId}:messages`;
+    const notificationKey = `server:${conversation.serverId}:notifications:${otherMemberProfileId}`;
 
     res?.socket?.server?.io?.emit(channelKey, directMessage);
+    res?.socket.server?.io?.emit(notificationKey);
 
     return res.status(201).json(directMessage);
   } catch (err: any) {
