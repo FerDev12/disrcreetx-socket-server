@@ -175,6 +175,7 @@ export async function handler(
         },
         data: {
           content: encryptedContent,
+          edited: true,
         },
         include: {
           member: {

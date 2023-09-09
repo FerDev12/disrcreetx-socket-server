@@ -116,6 +116,7 @@ model DirectMessage {
   sent           Boolean      @default(true)
   read           Boolean      @default(false)
   deleted        Boolean      @default(false)
+  edited         Boolean      @default(false)
   member         Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
