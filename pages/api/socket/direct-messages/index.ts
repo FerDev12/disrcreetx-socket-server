@@ -97,8 +97,8 @@ export default async function handler(
 
     const otherMemberProfileId =
       conversation.memberOne.profileId === profile.id
-        ? conversation.memberTwoId
-        : conversation.memberOneId;
+        ? conversation.memberTwo.profileId
+        : conversation.memberOne.profileId;
 
     if (!member) {
       throw new NotFoundError('Member not found');
