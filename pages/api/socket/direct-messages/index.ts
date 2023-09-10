@@ -8,9 +8,12 @@ import { z } from 'zod';
 import { ValidationError } from '@/errors/validation-error';
 import { NotFoundError } from '@/errors/not-found-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
+import { UnauthorizedError } from '@/errors/unauthorized-error';
+import { MethodNotAllowedError } from '@/errors/method-not-allowed-error';
 
 const querySchema = z.object({
-  conversationId: z.string().nonempty(),
+  conversationId: z.string().uuid().nonempty(),
+  memberId: z.string().uuid().nonempty(),
 });
 
 const boydSchema = z.object({
@@ -31,13 +34,13 @@ export default async function handler(
   try {
     const date = new Date();
     if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
+      throw new MethodNotAllowedError();
     }
 
     const profile = await currentProfile(req);
 
     if (!profile) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      throw new UnauthorizedError();
     }
 
     const queryResponse = querySchema.safeParse(req.query);
@@ -46,7 +49,7 @@ export default async function handler(
       throw new ValidationError(queryResponse.error.errors);
     }
 
-    const { conversationId } = queryResponse.data;
+    const { conversationId, memberId } = queryResponse.data;
 
     const bodyResponse = boydSchema.safeParse(req.body);
 
@@ -56,31 +59,65 @@ export default async function handler(
 
     const { content, fileUrl } = bodyResponse.data;
 
-    const conversation = await db.conversation.findFirst({
+    const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+    const encryptedContent = cryptr.encrypt(content);
+    let encryptedFileUrl: null | string = null;
+    if (fileUrl) {
+      encryptedFileUrl = cryptr.encrypt(fileUrl);
+    }
+
+    const conversation = await db.conversation.update({
       where: {
         id: conversationId,
         OR: [
           {
-            memberOne: {
-              profileId: profile.id,
-            },
+            memberOneId: memberId,
           },
           {
-            memberTwo: {
-              profileId: profile.id,
-            },
+            memberTwoId: memberId,
           },
         ],
       },
-      include: {
+      data: {
+        directMessages: {
+          create: {
+            content: encryptedContent,
+            fileUrl: encryptedFileUrl,
+            memberId: memberId,
+          },
+        },
+      },
+      select: {
+        serverId: true,
         memberOne: {
-          include: {
-            profile: true,
+          select: {
+            id: true,
+            profileId: true,
           },
         },
         memberTwo: {
+          select: {
+            id: true,
+            profileId: true,
+          },
+        },
+        directMessages: {
+          take: 1,
           include: {
-            profile: true,
+            member: {
+              include: {
+                profile: {
+                  select: {
+                    id: true,
+                    name: true,
+                    imageUrl: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },
@@ -90,48 +127,54 @@ export default async function handler(
       throw new NotFoundError('Conversation not found');
     }
 
-    const member =
-      conversation.memberOne.profileId === profile.id
-        ? conversation.memberOne
-        : conversation.memberTwo;
+    const directMessage = conversation.directMessages[0];
+
+    // const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+    // const encryptedContent = cryptr.encrypt(content);
+    // let encryptedFileUrl: null | string = null;
+    // if (fileUrl) {
+    //   encryptedFileUrl = cryptr.encrypt(fileUrl);
+    // }
+
+    // const directMessage2 = await db.directMessage.create({
+    //   data: {
+    //     content: encryptedContent,
+    //     fileUrl: encryptedFileUrl,
+    //     memberId,
+    //     conversationId,
+    //   },
+    //   include: {
+    //     member: {
+    //       include: {
+    //         profile: true,
+    //       },
+    //     },
+    //     conversation: {
+    //       select: {
+    //         serverId: true,
+    //         memberOne: {
+    //           select: {
+    //             profileId: true,
+    //           },
+    //         },
+    //         memberTwo: {
+    //           select: {
+    //             profileId: true,
+    //           },
+    //         },
+    //       },
+    //     },
+    //   },
+    // });
+
+    if (!directMessage) {
+      throw new NotFoundError('Direct message not found');
+    }
 
     const otherMemberProfileId =
       conversation.memberOne.profileId === profile.id
         ? conversation.memberTwo.profileId
         : conversation.memberOne.profileId;
-
-    if (!member) {
-      throw new NotFoundError('Member not found');
-    }
-
-    const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
-    const encryptedContent = cryptr.encrypt(content);
-    let encryptedFileUrl: null | string = null;
-    if (fileUrl) {
-      encryptedFileUrl = cryptr.encrypt(fileUrl);
-    }
-
-    const directMessage = await db.directMessage.create({
-      data: {
-        content: encryptedContent,
-        fileUrl: encryptedFileUrl,
-        memberId: member.id,
-        conversationId: conversationId as string,
-        createdAt: date,
-        updatedAt: date,
-      },
-      include: {
-        member: {
-          include: {
-            profile: true,
-          },
-        },
-      },
-    });
-
-    if (!directMessage) {
-      throw new NotFoundError('Message not found');
-    }
 
     directMessage.content = content;
     directMessage.fileUrl = fileUrl ?? null;
