@@ -1,15 +1,15 @@
 import { NextApiRequest } from 'next';
 
-import { currentProfile } from '@/lib/current-profile';
-import { db } from '@/lib/db';
 import { NextApiResponseServerIO } from '@/types';
 import NextCors from 'nextjs-cors';
 import Cryptr from 'cryptr';
 import { z } from 'zod';
 import { BadRequestError } from '@/errors/bad-request-error';
-import { ValidationError } from '@/errors/validation-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
+import { currentProfile } from '@/lib/current-profile';
+import { db } from '@/lib/db';
 import { NotFoundError } from '@/errors/not-found-error';
+import { ValidationError } from '@/errors/validation-error';
 
 const querySchema = z.object({
   serverId: z.string().nonempty(),
@@ -41,7 +41,6 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // const { serverId, channelId } = req.query;
     const [queryResponse, bodyResponse] = await Promise.allSettled([
       querySchema.safeParseAsync(req.query),
       bodySchema.safeParseAsync(req.body),

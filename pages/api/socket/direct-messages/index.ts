@@ -129,44 +129,6 @@ export default async function handler(
 
     const directMessage = conversation.directMessages[0];
 
-    // const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
-    // const encryptedContent = cryptr.encrypt(content);
-    // let encryptedFileUrl: null | string = null;
-    // if (fileUrl) {
-    //   encryptedFileUrl = cryptr.encrypt(fileUrl);
-    // }
-
-    // const directMessage2 = await db.directMessage.create({
-    //   data: {
-    //     content: encryptedContent,
-    //     fileUrl: encryptedFileUrl,
-    //     memberId,
-    //     conversationId,
-    //   },
-    //   include: {
-    //     member: {
-    //       include: {
-    //         profile: true,
-    //       },
-    //     },
-    //     conversation: {
-    //       select: {
-    //         serverId: true,
-    //         memberOne: {
-    //           select: {
-    //             profileId: true,
-    //           },
-    //         },
-    //         memberTwo: {
-    //           select: {
-    //             profileId: true,
-    //           },
-    //         },
-    //       },
-    //     },
-    //   },
-    // });
-
     if (!directMessage) {
       throw new NotFoundError('Direct message not found');
     }
