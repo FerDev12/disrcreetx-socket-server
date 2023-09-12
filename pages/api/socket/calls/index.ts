@@ -122,7 +122,7 @@ export default async function handler(
     const otherMemberProfileId =
       conversation.memberOne.profileId === profile.id
         ? conversation.memberTwo.profileId
-        : conversation.memberTwo.profileId;
+        : conversation.memberOne.profileId;
 
     const call = await db.call.create({
       data: {
