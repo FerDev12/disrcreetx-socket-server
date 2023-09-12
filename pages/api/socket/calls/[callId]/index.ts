@@ -141,7 +141,7 @@ export default async function handler(
     }
 
     // EMIT SOCKET EVENT
-    const callKey = `chat:${conversationId}:call:${profile.id}`;
+    const callKey = `server:${call.conversation.serverId}:call:${profile.id}`;
     res?.socket?.server?.io?.emit(callKey, call);
 
     return res.status(200).json(call);

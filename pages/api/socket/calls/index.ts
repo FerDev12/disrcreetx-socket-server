@@ -119,6 +119,11 @@ export default async function handler(
         ? conversation.memberOneId
         : conversation.memberTwoId;
 
+    const otherMember =
+      conversation.memberOne.profileId === profile.id
+        ? conversation.memberTwoId
+        : conversation.memberOneId;
+
     const call = await db.call.create({
       data: {
         type,
@@ -139,7 +144,7 @@ export default async function handler(
       throw new BadRequestError('Failed to create call');
     }
 
-    const callKey = `chat:${conversationId}:call:${profile.id}`;
+    const callKey = `server:${serverId}:call:${profile.id}`;
     res?.socket?.server?.io?.emit(callKey, call);
 
     return res.status(201).json(call);
