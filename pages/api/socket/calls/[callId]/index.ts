@@ -68,16 +68,34 @@ export default async function handler(
           },
         ],
       },
+      include: {
+        memberOne: {
+          select: {
+            profileId: true,
+          },
+        },
+        memberTwo: {
+          select: {
+            profileId: true,
+          },
+        },
+      },
     });
 
     if (!conversation) {
       throw new NotFoundError('Conversation not found');
     }
 
+    const otherMemberProfileId =
+      conversation.memberOne.profileId === profile.id
+        ? conversation.memberTwo.profileId
+        : conversation.memberOne.profileId;
+
+    const callKey = `server:${conversation.serverId}:call:${otherMemberProfileId}`;
+
     let call:
       | (Call & {
           conversation: Conversation;
-          member: Member & { profile: Profile };
         })
       | null = null;
 
@@ -105,13 +123,15 @@ export default async function handler(
         },
         include: {
           conversation: true,
-          member: {
-            include: {
-              profile: true,
-            },
-          },
         },
       });
+
+      if (!call) {
+        throw new NotFoundError('Call not found');
+      }
+
+      const callEditedKey = callKey + ':edited';
+      res.socket?.server?.io?.emit(callEditedKey, call);
     }
 
     // IMPLEMENT SOFT DELETE
@@ -127,22 +147,16 @@ export default async function handler(
         },
         include: {
           conversation: true,
-          member: {
-            include: {
-              profile: true,
-            },
-          },
         },
       });
-    }
 
-    if (!call) {
-      throw new NotFoundError('Call not found');
-    }
+      if (!call) {
+        throw new NotFoundError('Call not found');
+      }
 
-    // EMIT SOCKET EVENT
-    const callKey = `server:${call.conversation.serverId}:call:${profile.id}`;
-    res?.socket?.server?.io?.emit(callKey, call);
+      const callEndedKey = callKey + ':ended';
+      res.socket?.server?.io?.emit(callEndedKey, call);
+    }
 
     return res.status(200).json(call);
   } catch (err: any) {
