@@ -58,36 +58,6 @@ export default async function handler(
     const { conversationId, serverId } = queryResponse.data;
     const { type } = bodyResponse.data;
 
-    const currentActiveCall = await db.call.findFirst({
-      where: {
-        OR: [
-          {
-            active: true,
-          },
-          {
-            ended: false,
-          },
-        ],
-        conversation: {
-          id: conversationId,
-          OR: [
-            {
-              memberOne: {
-                profileId: profile.id,
-              },
-              memberTwo: {
-                profileId: profile.id,
-              },
-            },
-          ],
-        },
-      },
-    });
-
-    if (currentActiveCall) {
-      throw new BadRequestError('Only one concurrent conversation is allowed.');
-    }
-
     const conversation = await db.conversation.findFirst({
       where: {
         id: conversationId,
