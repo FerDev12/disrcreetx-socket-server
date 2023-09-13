@@ -10,10 +10,12 @@ import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
 import { NotFoundError } from '@/errors/not-found-error';
 import { ValidationError } from '@/errors/validation-error';
+import { UnauthorizedError } from '@/errors/unauthorized-error';
 
 const querySchema = z.object({
-  serverId: z.string().nonempty(),
-  channelId: z.string().nonempty(),
+  serverId: z.string().uuid().nonempty(),
+  channelId: z.string().uuid().nonempty(),
+  memberId: z.string().uuid().nonempty(),
 });
 
 const bodySchema = z.object({
@@ -38,7 +40,7 @@ export default async function handler(
     const profile = await currentProfile(req);
 
     if (!profile) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      throw new UnauthorizedError();
     }
 
     const [queryResponse, bodyResponse] = await Promise.allSettled([
@@ -62,9 +64,66 @@ export default async function handler(
       throw new ValidationError(bodyResponse.value.error.errors);
     }
 
-    const { serverId, channelId } = queryResponse.value.data;
+    const { serverId, channelId, memberId } = queryResponse.value.data;
     const { content, fileUrl } = bodyResponse.value.data;
 
+    console.time('ENCRYPT');
+    const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+    const encryptedContent = cryptr.encrypt(content);
+    let encryptedFileUrl: null | string = null;
+    if (fileUrl) {
+      encryptedFileUrl = cryptr.encrypt(fileUrl);
+    }
+    console.timeEnd('ENCRYPT');
+
+    console.time('MESSAGE_METHOD_1');
+    const ch = await db.channel.update({
+      where: {
+        id: channelId,
+        server: {
+          id: serverId,
+          members: {
+            some: {
+              id: memberId,
+              profileId: profile.id,
+            },
+          },
+        },
+      },
+      data: {
+        messages: {
+          create: {
+            memberId,
+            content: content,
+            fileUrl: fileUrl,
+            createdAt: date,
+            updatedAt: date,
+          },
+        },
+      },
+      include: {
+        messages: {
+          take: 1,
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
+    });
+    console.timeEnd('MESSAGE_METHOD_1');
+
+    const testM = ch.messages?.at(0);
+    if (testM) {
+      await db.message.delete({
+        where: {
+          id: testM.id,
+          memberId,
+          channelId,
+        },
+      });
+    }
+
+    console.time('MESSAGE_METHOD_2');
     const [serverResponse, channelResponse] = await Promise.allSettled([
       db.server.findFirst({
         where: {
@@ -115,12 +174,12 @@ export default async function handler(
     }
 
     // ENCRYPT CONTENTS
-    const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
-    const encryptedContent = cryptr.encrypt(content);
-    let encryptedFileUrl: null | string = null;
-    if (fileUrl) {
-      encryptedFileUrl = cryptr.encrypt(fileUrl);
-    }
+    // const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+    // const encryptedContent = cryptr.encrypt(content);
+    // let encryptedFileUrl: null | string = null;
+    // if (fileUrl) {
+    //   encryptedFileUrl = cryptr.encrypt(fileUrl);
+    // }
 
     const message = await db.message.create({
       data: {
@@ -139,6 +198,7 @@ export default async function handler(
         },
       },
     });
+    console.timeEnd('MESSAGE_METHOD_2');
 
     if (!message) {
       throw new BadRequestError('Something went wrong!');
