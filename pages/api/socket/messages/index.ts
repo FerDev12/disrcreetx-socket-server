@@ -91,8 +91,8 @@ export default async function handler(
         messages: {
           create: {
             memberId,
-            content: content,
-            fileUrl: fileUrl,
+            content: encryptedContent,
+            fileUrl: encryptedFileUrl,
             createdAt: date,
             updatedAt: date,
           },
