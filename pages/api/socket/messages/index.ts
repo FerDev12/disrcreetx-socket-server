@@ -67,17 +67,14 @@ export default async function handler(
     const { serverId, channelId, memberId } = queryResponse.value.data;
     const { content, fileUrl } = bodyResponse.value.data;
 
-    console.time('ENCRYPT');
     const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
     const encryptedContent = cryptr.encrypt(content);
     let encryptedFileUrl: null | string = null;
     if (fileUrl) {
       encryptedFileUrl = cryptr.encrypt(fileUrl);
     }
-    console.timeEnd('ENCRYPT');
 
-    console.time('MESSAGE_METHOD_1');
-    const ch = await db.channel.update({
+    const channel = await db.channel.update({
       where: {
         id: channelId,
         server: {
@@ -101,107 +98,38 @@ export default async function handler(
           },
         },
       },
-      include: {
+      select: {
         messages: {
           take: 1,
           orderBy: {
             createdAt: 'desc',
           },
-        },
-      },
-    });
-    console.timeEnd('MESSAGE_METHOD_1');
-
-    const testM = ch.messages?.at(0);
-    if (testM) {
-      await db.message.delete({
-        where: {
-          id: testM.id,
-          memberId,
-          channelId,
-        },
-      });
-    }
-
-    console.time('MESSAGE_METHOD_2');
-    const [serverResponse, channelResponse] = await Promise.allSettled([
-      db.server.findFirst({
-        where: {
-          id: serverId as string,
-          members: {
-            some: {
-              profileId: profile.id,
+          include: {
+            member: {
+              include: {
+                profile: {
+                  select: {
+                    id: true,
+                    name: true,
+                    imageUrl: true,
+                    email: true,
+                  },
+                },
+              },
             },
           },
         },
-        include: {
-          members: true,
-        },
-      }),
-      db.channel.findFirst({
-        where: {
-          id: channelId as string,
-          serverId: serverId as string,
-        },
-      }),
-    ]);
-
-    if (serverResponse.status === 'rejected') {
-      throw new NotFoundError('Server not found');
-    }
-
-    if (channelResponse.status === 'rejected') {
-      throw new NotFoundError('Channel not found');
-    }
-
-    const server = serverResponse.value;
-    const channel = channelResponse.value;
-
-    if (!server) {
-      throw new NotFoundError('Server not found');
-    }
+      },
+    });
 
     if (!channel) {
       throw new NotFoundError('Channel not found');
     }
 
-    const member = server.members.find(
-      (member) => member.profileId === profile.id
-    );
-
-    if (!member) {
-      throw new NotFoundError('Member not found');
-    }
-
-    // ENCRYPT CONTENTS
-    // const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
-    // const encryptedContent = cryptr.encrypt(content);
-    // let encryptedFileUrl: null | string = null;
-    // if (fileUrl) {
-    //   encryptedFileUrl = cryptr.encrypt(fileUrl);
-    // }
-
-    const message = await db.message.create({
-      data: {
-        content: encryptedContent,
-        fileUrl: encryptedFileUrl,
-        channelId: channelId as string,
-        memberId: member.id,
-        createdAt: date,
-        updatedAt: date,
-      },
-      include: {
-        member: {
-          include: {
-            profile: true,
-          },
-        },
-      },
-    });
-    console.timeEnd('MESSAGE_METHOD_2');
+    const message = channel.messages?.at(0);
 
     if (!message) {
-      throw new BadRequestError('Something went wrong!');
+      throw new BadRequestError('Failed to create message');
     }
 
     message.content = content;

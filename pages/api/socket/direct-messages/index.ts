@@ -12,6 +12,7 @@ import { UnauthorizedError } from '@/errors/unauthorized-error';
 import { MethodNotAllowedError } from '@/errors/method-not-allowed-error';
 
 const querySchema = z.object({
+  serverId: z.string().uuid().nonempty(),
   conversationId: z.string().uuid().nonempty(),
   memberId: z.string().uuid().nonempty(),
 });
@@ -49,7 +50,7 @@ export default async function handler(
       throw new ValidationError(queryResponse.error.errors);
     }
 
-    const { conversationId, memberId } = queryResponse.data;
+    const { conversationId, memberId, serverId } = queryResponse.data;
 
     const bodyResponse = boydSchema.safeParse(req.body);
 
@@ -69,12 +70,19 @@ export default async function handler(
     const conversation = await db.conversation.update({
       where: {
         id: conversationId,
+        serverId,
         OR: [
           {
-            memberOneId: memberId,
+            memberOne: {
+              id: memberId,
+              profileId: profile.id,
+            },
           },
           {
-            memberTwoId: memberId,
+            memberTwo: {
+              id: memberId,
+              profileId: profile.id,
+            },
           },
         ],
       },
@@ -111,6 +119,7 @@ export default async function handler(
                     id: true,
                     name: true,
                     imageUrl: true,
+                    email: true,
                   },
                 },
               },
