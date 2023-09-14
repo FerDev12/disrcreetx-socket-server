@@ -112,18 +112,7 @@ export default async function handler(
         directMessages: {
           take: 1,
           include: {
-            member: {
-              include: {
-                profile: {
-                  select: {
-                    id: true,
-                    name: true,
-                    imageUrl: true,
-                    email: true,
-                  },
-                },
-              },
-            },
+            member: true,
           },
           orderBy: {
             createdAt: 'desc',

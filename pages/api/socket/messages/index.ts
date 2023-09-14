@@ -105,18 +105,7 @@ export default async function handler(
             createdAt: 'desc',
           },
           include: {
-            member: {
-              include: {
-                profile: {
-                  select: {
-                    id: true,
-                    name: true,
-                    imageUrl: true,
-                    email: true,
-                  },
-                },
-              },
-            },
+            member: true,
           },
         },
       },
