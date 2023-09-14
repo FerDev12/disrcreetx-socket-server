@@ -61,7 +61,7 @@ export default async function handler(
             some: {
               profileId: profile.id,
               role: {
-                in: ['MODERATOR', 'GUEST'],
+                in: ['MODERATOR', 'ADMIN'],
               },
             },
           },
