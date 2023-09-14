@@ -39,6 +39,8 @@ model Server {
 
 model Member {
   id                     String          @id @default(uuid())
+  username               String
+  avatarUrl              String
   role                   MemberRole      @default(GUEST)
   profileId              String
   serverId               String
@@ -52,6 +54,7 @@ model Member {
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt
 
+  @@unique([username, serverId])
   @@index([profileId])
   @@index([serverId])
 }

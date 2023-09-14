@@ -15,6 +15,11 @@ const querySchema = z.object({
   inviteCode: z.string().nonempty(),
 });
 
+const bodySchema = z.object({
+  username: z.string().min(1, { message: 'Name is required' }),
+  avatarUrl: z.string().url().min(1, { message: 'Avatar is required' }),
+});
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponseServerIO
@@ -73,10 +78,20 @@ export default async function handler(
       throw new BadRequestError('Member already exists');
     }
 
+    const bodyResponse = bodySchema.safeParse(req.body);
+
+    if (!bodyResponse.success) {
+      throw new ValidationError(bodyResponse.error.errors);
+    }
+
+    const { username, avatarUrl } = bodyResponse.data;
+
     const member = await db.member.create({
       data: {
         profileId: profile.id,
         serverId,
+        username,
+        avatarUrl,
       },
     });
 
