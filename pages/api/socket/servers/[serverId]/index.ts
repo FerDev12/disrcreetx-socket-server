@@ -7,11 +7,10 @@ import { ValidationError } from '@/errors/validation-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
-import { NextApiResponseServerIO } from '@/types';
-import { MemberRole } from '@prisma/client';
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextApiResponseServerIO, ServerSocketEvents } from '@/types';
+import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
-import { ZodError, z } from 'zod';
+import { z } from 'zod';
 
 // SERVER EVENTS
 // server deleted
@@ -94,8 +93,6 @@ export default async function handler(
         throw new NotFoundError('Server not found');
       }
 
-      const serverUpdatedKey = `server:${serverId}:udpated`;
-      res.socket?.server?.io?.emit(serverUpdatedKey, server);
       return res.status(200).json(server);
     }
 
@@ -111,8 +108,10 @@ export default async function handler(
         throw new NotFoundError('Server not found');
       }
 
-      const serverDeletedKey = `server:${serverId}:deleted`;
-      res.socket?.server?.io?.emit(serverDeletedKey, server.id);
+      const serverDeletedKey = `server:${serverId}`;
+      res.socket?.server?.io?.emit(serverDeletedKey, {
+        type: ServerSocketEvents.SERVER_DELETED,
+      });
       return res.status(200).json(server);
     }
 

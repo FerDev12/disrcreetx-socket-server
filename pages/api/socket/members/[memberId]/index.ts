@@ -5,7 +5,7 @@ import { ValidationError } from '@/errors/validation-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
-import { NextApiResponseServerIO } from '@/types';
+import { NextApiResponseServerIO, ServerSocketEvents } from '@/types';
 import { MemberRole } from '@prisma/client';
 import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
@@ -91,49 +91,61 @@ export default async function handler(
         },
       });
 
-      const memberUpdateKey = `server:${serverId}:member:updated`;
-      res.socket?.server?.io?.emit(
-        memberUpdateKey,
-        server.members.find((member) => member.id === memberId)
-      );
+      const memberUpdateKey = `server:${serverId}`;
+      res.socket?.server?.io?.emit(memberUpdateKey, {
+        typ: ServerSocketEvents.MEMBER_UPDATED,
+        data: server.members.find((member) => member.id === memberId),
+      });
       return res.status(200).json(server);
     }
 
     if (req.method === 'DELETE') {
-      const server = await db.server.update({
+      const member = await db.member.delete({
         where: {
-          id: serverId,
-          members: {
-            some: {
-              profileId: profile.id,
-              role: {
-                in: ['MODERATOR', 'ADMIN'],
+          id: memberId,
+          server: {
+            id: serverId,
+            members: {
+              some: {
+                profileId: profile.id,
+                role: {
+                  in: ['MODERATOR', 'ADMIN'],
+                },
               },
             },
           },
         },
-        data: {
-          members: {
-            delete: {
-              id: memberId,
-            },
-          },
-        },
         include: {
-          members: {
+          server: {
             include: {
-              profile: true,
-            },
-            orderBy: {
-              role: 'asc',
+              members: {
+                include: {
+                  profile: {
+                    select: {
+                      id: true,
+                      name: true,
+                      imageUrl: true,
+                      email: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
       });
 
-      const memberDeletedKey = `server:${serverId}:member:deleted`;
-      res.socket?.server?.io?.emit(memberDeletedKey, memberId);
-      return res.status(200).json(server);
+      if (!member) {
+        throw new NotFoundError('Member not found');
+      }
+
+      const memberDeletedKey = `server:${serverId}`;
+      res.socket?.server?.io?.emit(memberDeletedKey, {
+        type: ServerSocketEvents.MEMBER_DELETED,
+        data: member,
+      });
+
+      return res.status(200).json(member.server);
     }
 
     throw new InternalServerError();

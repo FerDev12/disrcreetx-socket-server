@@ -4,7 +4,7 @@ import { ValidationError } from '@/errors/validation-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
-import { NextApiResponseServerIO } from '@/types';
+import { NextApiResponseServerIO, ServerSocketEvents } from '@/types';
 import { NextApiRequest } from 'next';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -61,8 +61,10 @@ export async function handler(
       throw new NotFoundError('Server not found');
     }
 
-    const leftServerKey = `server:${serverId}:member:leave`;
-    res?.socket?.server?.io?.emit(leftServerKey);
+    const leftServerKey = `server:${serverId}`;
+    res?.socket?.server?.io?.emit(leftServerKey, {
+      type: ServerSocketEvents.SERVER_LEAVE,
+    });
 
     return NextResponse.json(server);
   } catch (err: any) {

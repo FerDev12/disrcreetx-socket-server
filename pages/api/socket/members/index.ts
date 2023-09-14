@@ -5,7 +5,7 @@ import { ValidationError } from '@/errors/validation-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
-import { NextApiResponseServerIO } from '@/types';
+import { NextApiResponseServerIO, ServerSocketEvents } from '@/types';
 import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
 import { z } from 'zod';
@@ -78,23 +78,17 @@ export default async function handler(
         profileId: profile.id,
         serverId,
       },
-      include: {
-        profile: {
-          select: {
-            id: true,
-            name: true,
-            imageUrl: true,
-          },
-        },
-      },
     });
 
     if (!member) {
       throw new BadRequestError('Member creation failed');
     }
 
-    const memberAddedKey = `server:${serverId}:member:added`;
-    res.socket?.server?.io?.emit(memberAddedKey, member);
+    const memberAddedKey = `server:${serverId}`;
+    res.socket?.server?.io?.emit(memberAddedKey, {
+      type: ServerSocketEvents.MEMBER_ADDED,
+      data: member,
+    });
 
     return res.status(201).json(member);
   } catch (err: any) {

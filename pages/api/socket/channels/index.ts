@@ -5,7 +5,7 @@ import { ValidationError } from '@/errors/validation-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
-import { NextApiResponseServerIO } from '@/types';
+import { NextApiResponseServerIO, ServerSocketEvents } from '@/types';
 import { ChannelType, MemberRole } from '@prisma/client';
 import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
@@ -84,8 +84,11 @@ export default async function handler(
       throw new BadRequestError('Server creation failed');
     }
 
-    const channelCreatedKey = `server:${serverId}:channel:created`;
-    res?.socket?.server?.io?.emit(channelCreatedKey, channel);
+    const channelCreatedKey = `server:${serverId}`;
+    res?.socket?.server?.io?.emit(channelCreatedKey, {
+      type: ServerSocketEvents.CHANNEL_CREATED,
+      data: channel,
+    });
 
     return res.status(201).json(channel);
   } catch (err: any) {

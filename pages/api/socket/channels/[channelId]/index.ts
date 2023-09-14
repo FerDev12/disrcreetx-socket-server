@@ -6,7 +6,7 @@ import { ValidationError } from '@/errors/validation-error';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { currentProfile } from '@/lib/current-profile';
 import { db } from '@/lib/db';
-import { NextApiResponseServerIO } from '@/types';
+import { NextApiResponseServerIO, ServerSocketEvents } from '@/types';
 import { NextApiRequest } from 'next';
 import NextCors from 'nextjs-cors';
 import { z } from 'zod';
@@ -102,44 +102,43 @@ export default async function handler(
         (channel) => channel.id === channelId
       );
 
-      const channelUpdatedKey = `server:${serverId}:channel:updated`;
-      res.socket?.server?.io?.emit(channelUpdatedKey, channel);
+      const channelUpdatedKey = `server:${serverId}`;
+      res.socket?.server?.io?.emit(channelUpdatedKey, {
+        type: ServerSocketEvents.CHANNEL_UPDATED,
+        data: channel,
+      });
 
       return res.status(200).json(server);
     }
 
     if (req.method === 'DELETED') {
-      const server = await db.server.update({
+      const channel = await db.channel.delete({
         where: {
-          id: serverId,
-          members: {
-            some: {
-              profileId: profile.id,
-              role: {
-                in: ['MODERATOR', 'ADMIN'],
-              },
-            },
-          },
-        },
-        data: {
-          channels: {
-            delete: {
-              id: channelId,
-              name: {
-                not: 'general',
+          id: channelId,
+          server: {
+            id: serverId,
+            members: {
+              some: {
+                profileId: profile.id,
+                role: {
+                  in: ['MODERATOR', 'ADMIN'],
+                },
               },
             },
           },
         },
       });
 
-      if (!server) {
+      if (!channel) {
         throw new NotFoundError('Channel not found');
       }
 
-      const channelUpdatedKey = `server:${serverId}:channel:deleted`;
-      res.socket?.server?.io?.emit(channelUpdatedKey, channelId);
-      return res.status(200).json(server);
+      const channelDeletedKey = `server:${serverId}:channel:deleted`;
+      res.socket?.server?.io?.emit(channelDeletedKey, {
+        type: ServerSocketEvents.CHANNEL_DELETED,
+        data: channel,
+      });
+      return res.status(200).json(channel);
     }
 
     throw new MethodNotAllowedError();
