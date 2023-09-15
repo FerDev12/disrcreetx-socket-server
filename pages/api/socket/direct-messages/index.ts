@@ -101,12 +101,16 @@ export default async function handler(
           select: {
             id: true,
             profileId: true,
+            username: true,
+            avatarUrl: true,
           },
         },
         memberTwo: {
           select: {
             id: true,
             profileId: true,
+            username: true,
+            avatarUrl: true,
           },
         },
         directMessages: {
@@ -135,6 +139,10 @@ export default async function handler(
       conversation.memberOne.profileId === profile.id
         ? conversation.memberTwo.profileId
         : conversation.memberOne.profileId;
+    const currentMember =
+      conversation.memberOne.profileId !== profile.id
+        ? conversation.memberTwo
+        : conversation.memberOne;
 
     directMessage.content = content;
     directMessage.fileUrl = fileUrl ?? null;
@@ -143,7 +151,11 @@ export default async function handler(
     const notificationKey = `server:${conversation.serverId}:notifications:${otherMemberProfileId}`;
 
     res?.socket?.server?.io?.emit(channelKey, directMessage);
-    res?.socket.server?.io?.emit(notificationKey);
+    res?.socket.server?.io?.emit(notificationKey, {
+      from: currentMember.username,
+      imageUrl: currentMember.avatarUrl,
+      message: directMessage.content,
+    });
 
     return res.status(201).json(directMessage);
   } catch (err: any) {

@@ -96,6 +96,7 @@ export default async function handler(
         typ: ServerSocketEvents.MEMBER_UPDATED,
         data: server.members.find((member) => member.id === memberId),
       });
+
       return res.status(200).json(server);
     }
 
