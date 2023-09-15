@@ -155,6 +155,7 @@ export default async function handler(
       from: currentMember.username,
       imageUrl: currentMember.avatarUrl,
       message: directMessage.content,
+      memberId: currentMember.id,
     });
 
     return res.status(201).json(directMessage);
