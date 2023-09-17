@@ -166,7 +166,12 @@ export async function handler(
 
       const { content } = bodyResponse.data;
 
-      const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '');
+      const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY ?? '', {
+        // @ts-ignore
+        encoding: 'base64',
+        pbkdf2Iterations: 10000,
+        saltLength: 10,
+      });
       const encryptedContent = cryptr.encrypt(content);
 
       directMessage = await db.directMessage.update({
